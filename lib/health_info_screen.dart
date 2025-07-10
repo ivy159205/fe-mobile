@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class HealthInfoPage extends StatefulWidget {
   const HealthInfoPage({super.key});
@@ -15,12 +16,18 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
 
   String selectedGender = '';
 
+  DateTime? _selectedDate;
+
   @override
   void initState() {
     super.initState();
-    // Giả sử giá trị mặc định
+    // Giá trị mặc định
     nameController.text = "John Doe";
-    dobController.text = "1990-01-01";
+
+    // Khởi tạo ngày sinh mặc định và format đẹp
+    _selectedDate = DateTime(1990, 1, 1);
+    dobController.text = DateFormat('dd MMMM yyyy').format(_selectedDate!);
+
     heightController.text = "170";
     weightController.text = "65";
     selectedGender = 'M';
@@ -32,12 +39,41 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
     });
   }
 
+  Future<void> _pickDate() async {
+    final DateTime firstDate = DateTime(2000, 1, 1);
+    final DateTime lastDate = DateTime(2030, 12, 31);
+
+    DateTime initialDate = _selectedDate ?? firstDate;
+    if (initialDate.isBefore(firstDate)) {
+      initialDate = firstDate;
+    } else if (initialDate.isAfter(lastDate)) {
+      initialDate = lastDate;
+    }
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        dobController.text = DateFormat('dd MMMM yyyy').format(picked);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blue,
-        title: const Text('Profile Detail', style:TextStyle(color: Colors.white)),
+        title: const Text(
+          'Profile Detail',
+          style: TextStyle(color: Colors.white),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
@@ -57,14 +93,27 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
             ),
             const SizedBox(height: 24),
             _buildTextField("Name", nameController),
-            _buildTextField("Date of Birth", dobController),
+            // Sửa lại TextField Date of Birth thành readonly, mở date picker khi bấm
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: TextField(
+                controller: dobController,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Date of Birth',
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.calendar_today),
+                ),
+                onTap: _pickDate,
+              ),
+            ),
             _buildGenderSelector(),
             _buildTextField("Height (cm)", heightController),
             _buildTextField("Weight (kg)", weightController),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // Bạn có thể xử lý lưu ở đây
+                // Xử lý lưu dữ liệu ở đây
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Saved successfully!")),
                 );

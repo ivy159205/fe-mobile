@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'register.dart';
 import 'health_info_screen.dart';
-import 'forget_password.dart';
+import 'reset_password.dart';
 
 
 class LoginPage extends StatefulWidget {
