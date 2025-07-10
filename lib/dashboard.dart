@@ -9,7 +9,9 @@ class HealthDashboardApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Health Dashboard',
-      theme: ThemeData.light(), // Giao diện sáng
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
       home: DashboardScreen(),
       debugShowCheckedModeBanner: false,
     );
@@ -35,11 +37,12 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.blue, // ✅ Màu xanh dương cho AppBar
         title: Row(
           children: [
             Icon(Icons.home),
             SizedBox(width: 10),
-            Text("Logo"),
+            Text("Health Charts"),
             Spacer(),
             Icon(Icons.menu),
           ],

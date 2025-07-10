@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'register.dart';
+import 'health_info_screen.dart';
+import 'forget_password.dart';
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -77,9 +80,34 @@ class _LoginPageState extends State<LoginPage> {
                   child: const Text(
                     'Log In',
                     style: TextStyle(color: Colors.white),
+                    
                   ),
+                  
                 ),
               ),
+              const SizedBox(height: 24),
+
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HealthInfoPage()),
+                  );
+                },
+                child: const Text('Go to Health Info (Test)'),
+              ),
+              const SizedBox(height: 12),
+
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NewPasswordPage()),
+                  );
+                },
+                child: const Text('Go to New Password (Test)'),
+              ),
+
               const SizedBox(height: 24),
               const Row(
                 children: [

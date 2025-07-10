@@ -4,6 +4,9 @@ void main() {
   runApp(MaterialApp(
     home: SidebarWithBottomNav(),
     debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      primarySwatch: Colors.blue,
+    ),
   ));
 }
 
@@ -24,7 +27,14 @@ class _SidebarWithBottomNavState extends State<SidebarWithBottomNav> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Logo"),
+        backgroundColor: Colors.blue,
+        title: Row(
+          children: [
+            Icon(Icons.home),
+            SizedBox(width: 10),
+            Text("Health Charts"),
+          ],
+        ),
       ),
       drawer: Drawer(
         child: ListView(

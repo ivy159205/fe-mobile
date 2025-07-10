@@ -15,7 +15,10 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Reset Password')),
+      appBar: AppBar(
+        backgroundColor: Colors.blue,
+        title: const Text('Reset Password', style:TextStyle(color: Colors.white))),
+      
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

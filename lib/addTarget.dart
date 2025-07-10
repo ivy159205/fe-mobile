@@ -4,6 +4,9 @@ void main() {
   runApp(MaterialApp(
     home: AddTargetScreen(),
     debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      primarySwatch: Colors.blue,
+    ),
   ));
 }
 
@@ -46,7 +49,6 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
     print("🕓 Finish: ${_finishDate.toString()}");
     print("🎯 Target: ${_targetController.text}");
 
-    // TODO: bạn có thể xử lý dữ liệu ở đây
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Target submitted!")),
     );
@@ -56,6 +58,7 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.blue, 
         title: Row(
           children: [
             Icon(Icons.home),
@@ -170,7 +173,7 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
             IconButton(
               icon: Icon(Icons.track_changes),
               tooltip: "Add Target",
-              onPressed: () {}, // hiện tại đang ở màn này
+              onPressed: () {}, // Trang hiện tại
             ),
             IconButton(
               icon: Icon(Icons.list),
