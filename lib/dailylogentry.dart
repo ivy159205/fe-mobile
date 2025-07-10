@@ -90,10 +90,10 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.blue,
         elevation: 1,
         leading: IconButton(
-          icon: const Icon(Icons.home_outlined, color: Colors.blue),
+          icon: const Icon(Icons.home_outlined, color: Colors.white),
           onPressed: () {},
         ),
         title: const Text(
@@ -103,7 +103,7 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.menu, color: Colors.blue),
+            icon: const Icon(Icons.menu, color: Colors.white),
             onPressed: () {},
           ),
         ],

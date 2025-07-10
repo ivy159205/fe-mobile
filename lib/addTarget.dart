@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -17,37 +18,60 @@ class AddTargetScreen extends StatefulWidget {
 
 class _AddTargetScreenState extends State<AddTargetScreen> {
   final _titleController = TextEditingController();
-  final _startHourController = TextEditingController();
-  final _startMinuteController = TextEditingController();
   final _targetController = TextEditingController();
+
+  final _startDateController = TextEditingController(text: 'No date selected');
+  final _finishDateController = TextEditingController(text: 'No date selected');
 
   DateTime? _startDate;
   DateTime? _finishDate;
 
-  void _selectDate(bool isStart) async {
-    DateTime? picked = await showDatePicker(
+  String _formatDate(DateTime? date) {
+    if (date == null) return "No date selected";
+    return DateFormat('dd MMMM yyyy').format(date);
+  }
+
+  void _selectDate({required bool isStart}) async {
+    final now = DateTime.now();
+    final initial = isStart ? (_startDate ?? now) : (_finishDate ?? now);
+
+    final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+      initialDate: initial,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2500),
     );
 
     if (picked != null) {
       setState(() {
         if (isStart) {
           _startDate = picked;
+          _startDateController.text = _formatDate(picked);
         } else {
           _finishDate = picked;
+          _finishDateController.text = _formatDate(picked);
         }
       });
     }
   }
 
+  void _clearDate(bool isStart) {
+    setState(() {
+      if (isStart) {
+        _startDate = null;
+        _startDateController.text = 'No date selected';
+      } else {
+        _finishDate = null;
+        _finishDateController.text = 'No date selected';
+      }
+    });
+  }
+
   void _submitTarget() {
-    print("📌 Title: ${_titleController.text}");
-    print("🕐 Start: ${_startHourController.text}:${_startMinuteController.text} on ${_startDate.toString()}");
-    print("🕓 Finish: ${_finishDate.toString()}");
-    print("🎯 Target: ${_targetController.text}");
+    print("Title: ${_titleController.text}");
+    print("Start: ${_startDate.toString()}");
+    print("Finish: ${_finishDate.toString()}");
+    print("Target: ${_targetController.text}");
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Target submitted!")),
@@ -55,10 +79,19 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
   }
 
   @override
+  void dispose() {
+    _titleController.dispose();
+    _targetController.dispose();
+    _startDateController.dispose();
+    _finishDateController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blue, 
+        backgroundColor: Colors.blue,
         title: Row(
           children: [
             Icon(Icons.home),
@@ -83,55 +116,48 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
             ),
             SizedBox(height: 16),
 
-            Text("Start time"),
-            Row(
-              children: [
-                Flexible(
-                  flex: 1,
-                  child: TextField(
-                    controller: _startHourController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: "h",
-                      border: OutlineInputBorder(),
+            // Start Date Field
+            TextField(
+              controller: _startDateController,
+              readOnly: true,
+              decoration: InputDecoration(
+                labelText: "Start Date",
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.calendar_today),
+                      onPressed: () => _selectDate(isStart: true),
                     ),
-                  ),
-                ),
-                SizedBox(width: 8),
-                Flexible(
-                  flex: 1,
-                  child: TextField(
-                    controller: _startMinuteController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: "m",
-                      border: OutlineInputBorder(),
+                    IconButton(
+                      icon: Icon(Icons.refresh),
+                      onPressed: () => _clearDate(true),
                     ),
-                  ),
+                  ],
                 ),
-                SizedBox(width: 8),
-                Flexible(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: () => _selectDate(true),
-                    child: Text(
-                      _startDate == null
-                          ? "Choose start day"
-                          : "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}",
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             SizedBox(height: 16),
 
-            Text("Finish time"),
-            ElevatedButton(
-              onPressed: () => _selectDate(false),
-              child: Text(
-                _finishDate == null
-                    ? "Choose finish day"
-                    : "${_finishDate!.month}/${_finishDate!.day}/${_finishDate!.year}",
+            // Finish Date Field
+            TextField(
+              controller: _finishDateController,
+              readOnly: true,
+              decoration: InputDecoration(
+                labelText: "Finish Date",
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.calendar_today),
+                      onPressed: () => _selectDate(isStart: false),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.refresh),
+                      onPressed: () => _clearDate(false),
+                    ),
+                  ],
+                ),
               ),
             ),
             SizedBox(height: 16),
@@ -147,9 +173,22 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
             ),
             SizedBox(height: 24),
 
-            ElevatedButton(
-              onPressed: _submitTarget,
-              child: Text("Submit"),
+            Align(
+              alignment: Alignment.center,
+              child: ElevatedButton(
+                onPressed: _submitTarget,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[100],
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  "Submit",
+                  style: TextStyle(color: Colors.black),
+                ),
+              ),
             ),
           ],
         ),
@@ -173,7 +212,7 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
             IconButton(
               icon: Icon(Icons.track_changes),
               tooltip: "Add Target",
-              onPressed: () {}, // Trang hiện tại
+              onPressed: () {},
             ),
             IconButton(
               icon: Icon(Icons.list),
