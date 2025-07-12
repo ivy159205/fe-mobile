@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dashboard.dart';
 import 'register.dart';
 import 'health_info_screen.dart';
 import 'reset_password.dart';
@@ -63,7 +64,12 @@ class _LoginPageState extends State<LoginPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const NewPasswordPage()),
+                    );
+                  },
                   child: const Text('Forgot password?'),
                 ),
               ),
@@ -72,7 +78,21 @@ class _LoginPageState extends State<LoginPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    String email = _emailController.text.trim();
+                    String password = _passwordController.text.trim();
+
+                    if (email == 'admin' && password == 'admin') {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => DashboardScreen()),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Sai email hoặc mật khẩu')),
+                      );
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -85,29 +105,6 @@ class _LoginPageState extends State<LoginPage> {
                   
                 ),
               ),
-              const SizedBox(height: 24),
-
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const HealthInfoPage()),
-                  );
-                },
-                child: const Text('Go to Health Info (Test)'),
-              ),
-              const SizedBox(height: 12),
-
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const NewPasswordPage()),
-                  );
-                },
-                child: const Text('Go to New Password (Test)'),
-              ),
-
               const SizedBox(height: 24),
               const Row(
                 children: [

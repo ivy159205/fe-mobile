@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'health_chart.dart';
+import 'dailylogentry.dart';
+import 'addTarget.dart';
+import 'health_info_screen.dart';
+import 'heath_record_list.dart';
+import 'dashboard.dart';
+import 'login.dart';
 
 void main() {
   runApp(const MyApp());
@@ -51,28 +58,58 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
   }
 
+  void _handleButtonPress(BuildContext context, String name) {
+    if (name == "Progress Record") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthChartScreen()));
+    } else if (name == "Add Daily Log") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => DailyLogScreen()));
+    } else if (name == "Add Target") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AddTargetScreen()));
+    } else if (name == "Health Record List") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthRecordListScreen()));
+    } else if (name == "Ask AI") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
+    } else if (name == "Dashboard") {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HealthDashboardApp()));
+    } else if (name == "My Profile") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
+    } else if (name == "Logout") {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage()));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       // --- AppBar ---
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.home_outlined, color: Colors.blue),
-          onPressed: () {},
+        backgroundColor: Colors.blue,
+        title: Text("Ask AI"),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              accountName: Text("User Name"),
+              accountEmail: Text("user@example.com"),
+              currentAccountPicture: CircleAvatar(
+                backgroundImage: AssetImage("assets/avatar.jpg"), // hoặc dùng NetworkImage
+              ),
+              decoration: BoxDecoration(color: Colors.blue),
+            ),
+            ListTile(
+              leading: Icon(Icons.person),
+              title: Text("My Profile"),
+              onTap: () => _handleButtonPress(context, "My Profile"),
+            ),
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text("Logout"),
+              onTap: () => _handleButtonPress(context, "Logout"),
+            ),
+          ],
         ),
-        title: const Text(
-          'Healthcare chatbot',
-          style: TextStyle(color: Colors.black87, fontSize: 18),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.blue),
-            onPressed: () {},
-          ),
-        ],
       ),
 
       // --- Body ---
@@ -98,21 +135,22 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       ),
 
       // --- BottomNavigationBar ---
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.timer_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.alarm), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.list_alt_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.help_outline), label: ''),
-        ],
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          color: Colors.blue.shade50,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              IconButton(icon: Icon(Icons.dashboard), onPressed: () => _handleButtonPress(context, "Dashboard")),
+              IconButton(icon: Icon(Icons.bar_chart), onPressed: () => _handleButtonPress(context, "Progress Record")),
+              IconButton(icon: Icon(Icons.add), onPressed: () => _handleButtonPress(context, "Add Daily Log")),
+              IconButton(icon: Icon(Icons.alarm), onPressed: () => _handleButtonPress(context, "Add Target")),
+              IconButton(icon: Icon(Icons.list), onPressed: () => _handleButtonPress(context, "Health Record List")),
+              IconButton(icon: Icon(Icons.help), onPressed: () => _handleButtonPress(context, "Ask AI")),
+            ],
+          ),
+        ),
       ),
     );
   }

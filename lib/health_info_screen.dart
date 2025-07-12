@@ -22,13 +22,13 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
   void initState() {
     super.initState();
     // Giá trị mặc định
-    nameController.text = "John Doe";
+    nameController.text = "Lê Hải Đức";
 
     // Khởi tạo ngày sinh mặc định và format đẹp
-    _selectedDate = DateTime(1990, 1, 1);
+    _selectedDate = DateTime(2005, 09, 15);
     dobController.text = DateFormat('dd MMMM yyyy').format(_selectedDate!);
 
-    heightController.text = "170";
+    heightController.text = "175";
     weightController.text = "65";
     selectedGender = 'M';
   }
@@ -89,7 +89,7 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
           children: [
             const CircleAvatar(
               radius: 50,
-              backgroundImage: AssetImage('assets/avatar.png'),
+              backgroundImage: AssetImage('assets/avatar.jpg'),
             ),
             const SizedBox(height: 24),
             _buildTextField("Name", nameController),

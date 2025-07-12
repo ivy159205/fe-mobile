@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
+import 'health_chart.dart';
+import 'dailylogentry.dart';
+import 'addTarget.dart';
+import 'dashboard.dart';
+import 'chatbot.dart';
 import 'package:intl/intl.dart';
+
+import 'health_info_screen.dart';
+import 'login.dart';
 
 class HealthRecordListScreen extends StatefulWidget {
   const HealthRecordListScreen({Key? key}) : super(key: key);
@@ -12,6 +20,26 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
   final TextEditingController _dateController = TextEditingController();
   DateTime? _selectedDate;
   final DateFormat _dateFormat = DateFormat('dd MMMM yyyy');
+
+  void _handleButtonPress(BuildContext context, String name) {
+    if (name == "Progress Record") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthChartScreen()));
+    } else if (name == "Add Daily Log") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => DailyLogScreen()));
+    } else if (name == "Add Target") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AddTargetScreen()));
+    } else if (name == "Health Record List") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthRecordListScreen()));
+    } else if (name == "Ask AI") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
+    } else if (name == "Dashboard") {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HealthDashboardApp()));
+    } else if (name == "My Profile") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
+    } else if (name == "Logout") {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage()));
+    }
+  }
 
   final List<Map<String, String>> healthRecords = [
     {
@@ -61,66 +89,35 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-    appBar: AppBar(
-    title: const Text('Health record list'),
-    leading: IconButton(
-      icon: const Icon(Icons.home),
-      onPressed: () {
-        // Chuyển đến trang Dashboard
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
-      },
-    ),
-    actions: [
-      Builder( // Dùng Builder để có context đúng khi gọi Drawer
-        builder: (context) => IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {
-            Scaffold.of(context).openDrawer();
-          },
+      appBar: AppBar(
+        backgroundColor: Colors.blue,
+        title: Text("Health record list"),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              accountName: Text("User Name"),
+              accountEmail: Text("user@example.com"),
+              currentAccountPicture: CircleAvatar(
+                backgroundImage: AssetImage("assets/avatar.jpg"), // hoặc dùng NetworkImage
+              ),
+              decoration: BoxDecoration(color: Colors.blue),
+            ),
+            ListTile(
+              leading: Icon(Icons.person),
+              title: Text("My Profile"),
+              onTap: () => _handleButtonPress(context, "My Profile"),
+            ),
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text("Logout"),
+              onTap: () => _handleButtonPress(context, "Logout"),
+            ),
+          ],
         ),
       ),
-    ],
-    backgroundColor: Colors.blue,
-  ),
-  drawer: Drawer(
-    child: ListView(
-      padding: EdgeInsets.zero,
-      children: [
-        const DrawerHeader(
-          decoration: BoxDecoration(color: Colors.blue),
-          child: Text('Menu', style: TextStyle(color: Colors.white, fontSize: 24)),
-        ),
-        ListTile(
-          leading: const Icon(Icons.dashboard),
-          title: const Text('Dashboard'),
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.list),
-          title: const Text('Health Records'),
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const HealthRecordListScreen()));
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.add),
-          title: const Text('Add Record'),
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const AddRecordScreen()));
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.settings),
-          title: const Text('Settings'),
-          onTap: () {
-            // Thêm trang Settings nếu có
-          },
-        ),
-      ],
-    ),
-  ),
       body: SingleChildScrollView(
   padding: const EdgeInsets.all(12.0),
   child: Column(
@@ -289,53 +286,23 @@ Row(
     ],
   ),
 ),
-
-      bottomNavigationBar: BottomNavigationBar(
-  type: BottomNavigationBarType.fixed,
-  backgroundColor: Colors.blue[50], // Màu nền xanh nhạt
-  selectedItemColor: Colors.blue,   // Màu xanh cho icon được chọn
-  unselectedItemColor: Colors.blueGrey, 
-  onTap: (index) {
-    switch (index) {
-      case 0:
-        // Chuyển đến biểu đồ
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const DetailRecordScreen(date: '2025-07-01')));
-        break;
-      case 1:
-        // Chuyển đến trang thêm
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const AddRecordScreen()));
-        break;
-      case 2:
-        // Đồng hồ hoặc báo thức - không xử lý
-        break;
-      case 3:
-        // Refresh lại danh sách (hiện tại)
-        break;
-      case 4:
-        // Trợ giúp
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text("Help"),
-            content: const Text("This is a health record management app."),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          color: Colors.blue.shade50,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              IconButton(icon: Icon(Icons.dashboard), onPressed: () => _handleButtonPress(context, "Dashboard")),
+              IconButton(icon: Icon(Icons.bar_chart), onPressed: () => _handleButtonPress(context, "Progress Record")),
+              IconButton(icon: Icon(Icons.add), onPressed: () => _handleButtonPress(context, "Add Daily Log")),
+              IconButton(icon: Icon(Icons.alarm), onPressed: () => _handleButtonPress(context, "Add Target")),
+              IconButton(icon: Icon(Icons.list), onPressed: () => _handleButtonPress(context, "Health Record List")),
+              IconButton(icon: Icon(Icons.help), onPressed: () => _handleButtonPress(context, "Ask AI")),
             ],
           ),
-        );
-        break;
-    }
-  },
-  items: const [
-    BottomNavigationBarItem(icon: Icon(Icons.pie_chart), label: ''),
-    BottomNavigationBarItem(icon: Icon(Icons.add_circle), label: ''),
-    BottomNavigationBarItem(icon: Icon(Icons.access_alarm), label: ''),
-    BottomNavigationBarItem(icon: Icon(Icons.list), label: ''),
-    BottomNavigationBarItem(icon: Icon(Icons.help), label: ''),
-  ],
-),
+        ),
+      ),
     );
   }
 }
