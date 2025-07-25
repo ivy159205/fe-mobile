@@ -12,6 +12,8 @@ void main() {
 }
 
 class HealthDashboardApp extends StatelessWidget {
+  const HealthDashboardApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -34,6 +36,8 @@ class DashboardScreen extends StatelessWidget {
     {"title": "Steps", "value": "8,500 bước"},
     {"title": "Calories", "value": "320 kcal"},
   ];
+
+  DashboardScreen({super.key});
 
   void _handleButtonPress(BuildContext context, String name) {
     if (name == "Progress Record") {

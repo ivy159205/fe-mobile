@@ -10,7 +10,7 @@ import 'health_info_screen.dart';
 import 'login.dart';
 
 class HealthRecordListScreen extends StatefulWidget {
-  const HealthRecordListScreen({Key? key}) : super(key: key);
+  const HealthRecordListScreen({super.key});
 
   @override
   State<HealthRecordListScreen> createState() => _HealthRecordListScreenState();

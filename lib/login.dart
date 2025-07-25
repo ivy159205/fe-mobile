@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dashboard.dart';
 import 'register.dart';
-import 'health_info_screen.dart';
 import 'reset_password.dart';
 
 

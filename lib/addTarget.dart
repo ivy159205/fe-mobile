@@ -19,6 +19,8 @@ void main() {
 }
 
 class AddTargetScreen extends StatefulWidget {
+  const AddTargetScreen({super.key});
+
   @override
   _AddTargetScreenState createState() => _AddTargetScreenState();
 }

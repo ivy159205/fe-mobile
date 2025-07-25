@@ -11,6 +11,8 @@ void main() {
 }
 
 class SidebarWithBottomNav extends StatefulWidget {
+  const SidebarWithBottomNav({super.key});
+
   @override
   _SidebarWithBottomNavState createState() => _SidebarWithBottomNavState();
 }
