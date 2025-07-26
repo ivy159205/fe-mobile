@@ -1,6 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'dashboard.dart';
+import 'dashboard.dart' as dashboard;
 import 'dailylogentry.dart';
 import 'addTarget.dart';
 import 'health_info_screen.dart';
@@ -23,7 +23,7 @@ class HealthChartScreen extends StatelessWidget {
     } else if (name == "Ask AI") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
     } else if (name == "Dashboard") {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HealthDashboardApp()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => dashboard.DashboardScreen()));
     } else if (name == "My Profile") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
     } else if (name == "Logout") {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'health_chart.dart';
 import 'dailylogentry.dart';
 import 'addTarget.dart';
-import 'dashboard.dart';
+import 'dashboard.dart' as dashboard;
 import 'chatbot.dart';
 import 'package:intl/intl.dart';
 
@@ -33,7 +33,7 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
     } else if (name == "Ask AI") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
     } else if (name == "Dashboard") {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HealthDashboardApp()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => dashboard.DashboardScreen()));
     } else if (name == "My Profile") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
     } else if (name == "Logout") {

@@ -6,26 +6,7 @@ import 'heath_record_list.dart';
 import 'chatbot.dart';
 import 'login.dart';
 import 'health_info_screen.dart';
-
-void main() {
-  runApp(HealthDashboardApp());
-}
-
-class HealthDashboardApp extends StatelessWidget {
-  const HealthDashboardApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Health Dashboard',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: DashboardScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+import 'auth_service.dart';
 
 class DashboardScreen extends StatelessWidget {
   final List<Map<String, String>> healthData = [
@@ -40,23 +21,52 @@ class DashboardScreen extends StatelessWidget {
   DashboardScreen({super.key});
 
   void _handleButtonPress(BuildContext context, String name) {
-    if (name == "Progress Record") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthChartScreen()));
-    } else if (name == "Add Daily Log") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => DailyLogScreen()));
-    } else if (name == "Add Target") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => AddTargetScreen()));
-    } else if (name == "Health Record List") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthRecordListScreen()));
-    } else if (name == "Ask AI") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
-    } else if (name == "My Profile") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
-    } else if (name == "Logout") {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage()));
-    } else if (name == "Dashboard") {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen()));
+    switch (name) {
+      case "Progress Record":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => HealthChartScreen()));
+        break;
+      case "Add Daily Log":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => DailyLogScreen()));
+        break;
+      case "Add Target":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => AddTargetScreen()));
+        break;
+      case "Health Record List":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => HealthRecordListScreen()));
+        break;
+      case "Ask AI":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
+        break;
+      case "My Profile":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
+        break;
+      case "Dashboard":
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen()));
+        break;
     }
+  }
+
+  void _confirmLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("Confirm Logout"),
+        content: Text("Are you sure you want to log out?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop(); // Close dialog
+              await AuthService.logout(context); // Proceed with logout
+            },
+            child: Text("Logout"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -74,7 +84,7 @@ class DashboardScreen extends StatelessWidget {
               accountName: Text("User Name"),
               accountEmail: Text("user@example.com"),
               currentAccountPicture: CircleAvatar(
-                backgroundImage: AssetImage("assets/avatar.jpg"), // hoặc dùng NetworkImage
+                backgroundImage: AssetImage("assets/avatar.jpg"),
               ),
               decoration: BoxDecoration(color: Colors.blue),
             ),
@@ -86,7 +96,7 @@ class DashboardScreen extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.logout),
               title: Text("Logout"),
-              onTap: () => _handleButtonPress(context, "Logout"),
+              onTap: () => _confirmLogout(context),
             ),
           ],
         ),
@@ -152,4 +162,3 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 }
-

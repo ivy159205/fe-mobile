@@ -4,7 +4,7 @@ import 'dailylogentry.dart';
 import 'addTarget.dart';
 import 'health_info_screen.dart';
 import 'heath_record_list.dart';
-import 'dashboard.dart';
+import 'dashboard.dart' as dashboard;
 import 'login.dart';
 
 void main() {
@@ -70,7 +70,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     } else if (name == "Ask AI") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
     } else if (name == "Dashboard") {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HealthDashboardApp()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => dashboard.DashboardScreen()));
     } else if (name == "My Profile") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
     } else if (name == "Logout") {

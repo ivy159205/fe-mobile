@@ -13,11 +13,14 @@ class _RegisterPageState extends State<RegisterPage> {
   final _usernameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
-  final _genderController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   DateTime? _selectedDate;
   bool _obscurePassword = true;
+
+  // Gender dropdown
+  String? _selectedGender;
+  final List<String> _genders = ['Male', 'Female', 'Other'];
 
   Future<void> _register() async {
     if (_passwordController.text != _confirmPasswordController.text) {
@@ -34,7 +37,7 @@ class _RegisterPageState extends State<RegisterPage> {
       "password": _passwordController.text,
       "email": _emailController.text.trim(),
       "phoneNumber": _phoneController.text.trim(),
-      "gender": _genderController.text.trim(),
+      "gender": _selectedGender ?? '',
       "dob": _selectedDate?.toIso8601String().split('T').first ?? '',
       "role": "user"
     };
@@ -111,14 +114,25 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 20),
 
-              // Gender
-              TextField(
-                controller: _genderController,
+              // Gender Dropdown
+              DropdownButtonFormField<String>(
+                value: _selectedGender,
+                items: _genders.map((String gender) {
+                  return DropdownMenuItem<String>(
+                    value: gender,
+                    child: Text(gender),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedGender = newValue;
+                  });
+                },
                 decoration: const InputDecoration(
                   labelText: 'Gender',
-                  hintText: 'e.g. Male/Female/Other',
                   border: OutlineInputBorder(),
                 ),
+                hint: const Text('Please select gender'),
               ),
               const SizedBox(height: 20),
 
