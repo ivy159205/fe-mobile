@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class HealthInfoPage extends StatefulWidget {
   const HealthInfoPage({super.key});
@@ -15,19 +18,15 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
   final TextEditingController weightController = TextEditingController();
 
   String selectedGender = '';
-
   DateTime? _selectedDate;
 
   @override
   void initState() {
     super.initState();
-    // Giá trị mặc định
+    // Dữ liệu mẫu để test
     nameController.text = "Lê Hải Đức";
-
-    // Khởi tạo ngày sinh mặc định và format đẹp
-    _selectedDate = DateTime(2005, 09, 15);
+    _selectedDate = DateTime(2005, 9, 15);
     dobController.text = DateFormat('dd MMMM yyyy').format(_selectedDate!);
-
     heightController.text = "175";
     weightController.text = "65";
     selectedGender = 'M';
@@ -40,15 +39,9 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
   }
 
   Future<void> _pickDate() async {
-    final DateTime firstDate = DateTime(2000, 1, 1);
+    final DateTime firstDate = DateTime(1950, 1, 1);
     final DateTime lastDate = DateTime(2030, 12, 31);
-
-    DateTime initialDate = _selectedDate ?? firstDate;
-    if (initialDate.isBefore(firstDate)) {
-      initialDate = firstDate;
-    } else if (initialDate.isAfter(lastDate)) {
-      initialDate = lastDate;
-    }
+    final DateTime initialDate = _selectedDate ?? DateTime(2000, 1, 1);
 
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -57,7 +50,7 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
       lastDate: lastDate,
     );
 
-    if (picked != null && picked != _selectedDate) {
+    if (picked != null) {
       setState(() {
         _selectedDate = picked;
         dobController.text = DateFormat('dd MMMM yyyy').format(picked);
@@ -65,15 +58,73 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
     }
   }
 
+  Future<void> _updateUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) {
+      _showMessage("Bạn chưa đăng nhập!");
+      return;
+    }
+
+    final uri = Uri.parse('http://10.0.2.2:8286/api/users/update'); // IP máy ảo Android
+
+    final response = await http.put(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'username': nameController.text.trim(),
+        'dob': _selectedDate?.toIso8601String().substring(0, 10),
+        'gender': selectedGender,
+        'height': double.tryParse(heightController.text.trim()),
+        'weight': double.tryParse(weightController.text.trim()),
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      _showMessage("Đã cập nhật thành công!", isError: false);
+    } else {
+      _showMessage("Lỗi cập nhật: ${response.statusCode}");
+    }
+  }
+
+  void _showMessage(String message, {bool isError = true}) {
+    final color = isError ? Colors.red : Colors.green;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+      ),
+    );
+  }
+
+  void _saveInfo() {
+    // Kiểm tra giá trị chiều cao và cân nặng có hợp lệ không
+    final height = double.tryParse(heightController.text.trim());
+    final weight = double.tryParse(weightController.text.trim());
+
+    if (height == null || weight == null || height <= 0 || weight <= 0) {
+      _showMessage("Chiều cao và cân nặng phải là số hợp lệ!");
+      return;
+    }
+
+    if (selectedGender.isEmpty) {
+      _showMessage("Vui lòng chọn giới tính!");
+      return;
+    }
+
+    _updateUserProfile();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blue,
-        title: const Text(
-          'Profile Detail',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Profile Detail', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
@@ -93,31 +144,13 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
             ),
             const SizedBox(height: 24),
             _buildTextField("Name", nameController),
-            // Sửa lại TextField Date of Birth thành readonly, mở date picker khi bấm
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: TextField(
-                controller: dobController,
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Date of Birth',
-                  border: OutlineInputBorder(),
-                  suffixIcon: Icon(Icons.calendar_today),
-                ),
-                onTap: _pickDate,
-              ),
-            ),
+            _buildDatePickerField(),
             _buildGenderSelector(),
             _buildTextField("Height (cm)", heightController),
             _buildTextField("Weight (kg)", weightController),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
-                // Xử lý lưu dữ liệu ở đây
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Saved successfully!")),
-                );
-              },
+              onPressed: _saveInfo,
               child: const Text('Save'),
             ),
           ],
@@ -131,10 +164,29 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextField(
         controller: controller,
+        keyboardType: label.contains("Height") || label.contains("Weight")
+            ? TextInputType.number
+            : TextInputType.text,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDatePickerField() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: TextField(
+        controller: dobController,
+        readOnly: true,
+        decoration: const InputDecoration(
+          labelText: 'Date of Birth',
+          border: OutlineInputBorder(),
+          suffixIcon: Icon(Icons.calendar_today),
+        ),
+        onTap: _pickDate,
       ),
     );
   }
@@ -149,7 +201,7 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [_genderChip("M"), _genderChip("F"), _genderChip("O")],
+          children: ['M', 'F', 'O'].map(_genderChip).toList(),
         ),
       ),
     );
