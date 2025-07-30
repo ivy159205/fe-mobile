@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'health_chart.dart';
 import 'dailylogentry.dart';
 import 'addTarget.dart';
-import 'dashboard.dart' as dashboard;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'chatbot.dart';
 import 'package:intl/intl.dart';
-
+import '../model/HealthRecord.dart';
 import 'health_info_screen.dart';
 import 'login.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dashboard.dart' as dash;
+import 'package:jwt_decoder/jwt_decoder.dart'; // Thêm import
 
 class HealthRecordListScreen extends StatefulWidget {
-  const HealthRecordListScreen({super.key});
+  const HealthRecordListScreen({Key? key}) : super(key: key);
 
   @override
   State<HealthRecordListScreen> createState() => _HealthRecordListScreenState();
@@ -18,8 +22,108 @@ class HealthRecordListScreen extends StatefulWidget {
 
 class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
   final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _metricController = TextEditingController();
   DateTime? _selectedDate;
+  String _metricFilter = '';
+
+  // Thay đổi: Chuyển userId thành biến state, cho phép null
+  int? _userId;
+
+  List<HealthRecord> allRecords = [];
+  List<HealthRecord> healthRecords = [];
   final DateFormat _dateFormat = DateFormat('dd MMMM yyyy');
+
+  @override
+  void initState() {
+    super.initState();
+    // Thay đổi: Gọi hàm mới để lấy userId trước khi tải dữ liệu
+    _loadUserIdAndFetchRecords();
+  }
+
+  // Thay đổi: Hàm mới để lấy token, giải mã userId, sau đó mới fetch data
+  Future<void> _loadUserIdAndFetchRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token != null) {
+      try {
+        final Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+        setState(() {
+          _userId = decodedToken['userId'];
+        });
+
+        if (_userId != null) {
+          await fetchHealthRecords();
+        }
+      } catch (e) {
+        print("Lỗi giải mã token: $e");
+      }
+    }
+  }
+
+  // Thay đổi: Sửa lại hàm fetchHealthRecords để dùng _userId từ state
+  Future<void> fetchHealthRecords() async {
+    if (_userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Không thể xác thực người dùng.")),
+      );
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return;
+
+    final response = await http.get(
+      Uri.parse('http://10.0.2.2:8286/api/healthrecords/user/$_userId'), // Sử dụng _userId
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> jsonData = json.decode(response.body);
+      List<HealthRecord> resultList = jsonData.map((json) => HealthRecord.fromJson(json)).toList();
+      setState(() {
+        allRecords = resultList;
+        healthRecords = List.from(allRecords); // Hiển thị tất cả ban đầu
+      });
+    } else {
+      print('Failed to fetch health records. Status: ${response.statusCode}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Lỗi tải dữ liệu: ${response.statusCode}")),
+      );
+    }
+  }
+
+  Future<void> deleteRecord(int recordId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return;
+
+    final url = Uri.parse('http://10.0.2.2:8286/api/healthrecords/$recordId');
+    final response = await http.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      // Tải lại danh sách từ đầu để đảm bảo dữ liệu luôn đúng
+      await fetchHealthRecords();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Đã xóa bản ghi $recordId")),
+      );
+    } else {
+      print("Delete failed. Status: ${response.statusCode}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Xóa thất bại: ${response.statusCode}")),
+      );
+    }
+  }
 
   void _handleButtonPress(BuildContext context, String name) {
     if (name == "Progress Record") {
@@ -29,11 +133,11 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
     } else if (name == "Add Target") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => AddTargetScreen()));
     } else if (name == "Health Record List") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthRecordListScreen()));
+      // Đã ở màn hình này
     } else if (name == "Ask AI") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
     } else if (name == "Dashboard") {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => dashboard.DashboardScreen()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => dash.DashboardScreen()));
     } else if (name == "My Profile") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
     } else if (name == "Logout") {
@@ -41,37 +145,15 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
     }
   }
 
-  final List<Map<String, String>> healthRecords = [
-    {
-      'date': '2025-07-01',
-      'overview':
-          'Nước: 2200ml, Nhịp: 72bpm\nHuyết áp: 120/80\nNgủ: 7.5 giờ, Đường: 5.6 mmol/L',
-    },
-    {
-      'date': '2025-06-30',
-      'overview': 'Heart Rate: 72 bpm',
-    },
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _dateController.text = 'No date selected';
-  }
-
   Future<void> _pickDate(BuildContext context) async {
-    final DateTime initialDate = _selectedDate ?? DateTime.now();
-    final DateTime firstDate = DateTime(2000);
-    final DateTime lastDate = DateTime(2030);
-
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: initialDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2030),
     );
 
-    if (picked != null) {
+    if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
         _dateController.text = _dateFormat.format(picked);
@@ -79,10 +161,28 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
     }
   }
 
+  void applyFilter() {
+    setState(() {
+      healthRecords = allRecords.where((record) {
+        final logDate = DateTime.parse(record.logDate);
+
+        final matchesDate = _selectedDate == null ||
+            (logDate.year == _selectedDate!.year &&
+                logDate.month == _selectedDate!.month &&
+                logDate.day == _selectedDate!.day);
+
+        final matchesMetric = _metricFilter.isEmpty ||
+            record.metricName.toLowerCase().contains(_metricFilter);
+
+        return matchesDate && matchesMetric;
+      }).toList();
+    });
+  }
+
   void _clearDate() {
     setState(() {
       _selectedDate = null;
-      _dateController.text = 'No date selected';
+      _dateController.clear();
     });
   }
 
@@ -91,7 +191,7 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blue,
-        title: Text("Health record list"),
+        title: Text("Health Record List"),
       ),
       drawer: Drawer(
         child: ListView(
@@ -101,7 +201,7 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
               accountName: Text("User Name"),
               accountEmail: Text("user@example.com"),
               currentAccountPicture: CircleAvatar(
-                backgroundImage: AssetImage("assets/avatar.jpg"), // hoặc dùng NetworkImage
+                backgroundImage: AssetImage("assets/avatar.jpg"),
               ),
               decoration: BoxDecoration(color: Colors.blue),
             ),
@@ -118,174 +218,98 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-  padding: const EdgeInsets.all(12.0),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-// Filter section
-Row(
-  children: [
-    const Icon(Icons.filter_alt, color: Colors.blue),
-    const SizedBox(width: 8),
-    Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Date'),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _dateController, // controller đã khai báo ở State
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    hintText: 'Select date',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // Filter section
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 2, blurRadius: 5)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Filter Records", style: Theme.of(context).textTheme.titleLarge),
+                  SizedBox(height: 12),
+                  TextField(
+                    controller: _dateController,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: 'Select Date',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.calendar_today),
+                      suffixIcon: _dateController.text.isNotEmpty ? IconButton(icon: Icon(Icons.close), onPressed: _clearDate) : null,
                     ),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 8),
+                    onTap: () => _pickDate(context),
                   ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.calendar_today),
-                onPressed: () => _pickDate(context),
-              ),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _clearDate,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text('Metric type'),
-          const SizedBox(height: 4),
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Enter metric type',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-          ),
-        ],
-      ),
-    ),
-  ],
-),
-      const SizedBox(height: 16),
-
-      // Table with scroll protection
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: 500,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header row
-              Row(
-                children: const [
-                  SizedBox(
-                    width: 100,
-                    child: Text('Date',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  SizedBox(height: 12),
+                  TextField(
+                    controller: _metricController,
+                    decoration: InputDecoration(
+                      labelText: 'Metric Type',
+                      hintText: 'e.g., Weight',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.monitor_heart),
+                    ),
+                    onChanged: (value) => _metricFilter = value.trim().toLowerCase(),
                   ),
-                  SizedBox(
-                    width: 250,
-                    child: Text('Overview',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  SizedBox(
-                    width: 100,
-                    child: Text('Action',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
+                  SizedBox(height: 12),
+                  SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                    icon: const Icon(Icons.search),
+                    label: const Text("Apply Filter"),
+                    onPressed: applyFilter,
+                  )),
                 ],
               ),
-              const Divider(),
-
-              // Table data
-              ...healthRecords.map((record) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 100,
-                          child: Text(record['date'] ?? ''),
-                        ),
-                        SizedBox(
-                          width: 250,
-                          child: Text(
-                            record['overview'] ?? '',
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 3,
-                          ),
-                        ),
-                        SizedBox(
-                          width: 100,
-                          child: Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit, size: 20),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => EditRecordScreen(
-                                          date: record['date'] ?? ''),
-                                    ),
-                                  );
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close, size: 20),
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title:
-                                          const Text("Confirm Delete"),
-                                      content: Text(
-                                          "Delete record dated ${record['date']}?"),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(ctx),
-                                          child: const Text("Cancel"),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            // TODO: Implement delete logic here
-                                            Navigator.pop(ctx);
-                                          },
-                                          child: const Text("Delete",
-                                              style: TextStyle(
-                                                  color: Colors.red)),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: healthRecords.isEmpty
+                  ? Center(child: Text("No records found."))
+                  : ListView.builder(
+                itemCount: healthRecords.length,
+                itemBuilder: (context, index) {
+                  final record = healthRecords[index];
+                  return Card(
+                    margin: EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: CircleAvatar(child: Icon(Icons.favorite_border)),
+                      title: Text("${record.metricName}: ${record.value} ${record.unit}"),
+                      subtitle: Text(DateFormat('dd MMMM yyyy, hh:mm a').format(DateTime.parse(record.logDate))),
+                      trailing: IconButton( // <-- THAY ĐỔI: Chỉ còn lại nút xóa
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text("Confirm Delete"),
+                              content: Text("Delete record ${record.healthRecordId}?"),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    deleteRecord(record.healthRecordId);
+                                  },
+                                  child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  )),
-            ],
-          ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
-    ],
-  ),
-),
       bottomNavigationBar: SafeArea(
         child: Container(
           padding: EdgeInsets.symmetric(vertical: 8),
@@ -297,60 +321,12 @@ Row(
               IconButton(icon: Icon(Icons.bar_chart), onPressed: () => _handleButtonPress(context, "Progress Record")),
               IconButton(icon: Icon(Icons.add), onPressed: () => _handleButtonPress(context, "Add Daily Log")),
               IconButton(icon: Icon(Icons.alarm), onPressed: () => _handleButtonPress(context, "Add Target")),
-              IconButton(icon: Icon(Icons.list), onPressed: () => _handleButtonPress(context, "Health Record List")),
+              IconButton(icon: Icon(Icons.list, color: Colors.blue), onPressed: () => _handleButtonPress(context, "Health Record List")), // Active
               IconButton(icon: Icon(Icons.help), onPressed: () => _handleButtonPress(context, "Ask AI")),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-class AddRecordScreen extends StatelessWidget {
-  const AddRecordScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Add Health Record")),
-      body: const Center(child: Text("Add Record Page")),
-    );
-  }
-}
-
-// screen_edit.dart
-class EditRecordScreen extends StatelessWidget {
-  final String date;
-  const EditRecordScreen({super.key, required this.date});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("Edit Record: $date")),
-      body: const Center(child: Text("Edit Record Page")),
-    );
-  }
-}
-
-// screen_detail.dart
-class DetailRecordScreen extends StatelessWidget {
-  final String date;
-  const DetailRecordScreen({super.key, required this.date});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("Record Details: $date")),
-      body: const Center(child: Text("Details of Record")),
-    );
-  }
-}
-class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Dashboard")),
-      body: const Center(child: Text("Welcome to Dashboard")),
     );
   }
 }

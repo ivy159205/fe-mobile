@@ -23,13 +23,48 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
   @override
   void initState() {
     super.initState();
-    // Dữ liệu mẫu để test
-    nameController.text = "Lê Hải Đức";
-    _selectedDate = DateTime(2005, 9, 15);
-    dobController.text = DateFormat('dd MMMM yyyy').format(_selectedDate!);
-    heightController.text = "175";
-    weightController.text = "65";
-    selectedGender = 'M';
+    _fetchUserProfile(); // Gọi dữ liệu từ backend khi mở trang
+  }
+
+  Future<void> _fetchUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) {
+      _showMessage("Bạn chưa đăng nhập!");
+      return;
+    }
+
+    final uri = Uri.parse('http://10.0.2.2:8286/api/users/me');
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          nameController.text = data['username'] ?? '';
+          selectedGender = data['gender'] ?? '';
+          heightController.text = data['height']?.toString() ?? '';
+          weightController.text = data['weight']?.toString() ?? '';
+
+          if (data['dob'] != null) {
+            _selectedDate = DateTime.tryParse(data['dob']);
+            if (_selectedDate != null) {
+              dobController.text = DateFormat('dd MMMM yyyy').format(_selectedDate!);
+            }
+          }
+        });
+      } else {
+        _showMessage("Lỗi tải thông tin người dùng: ${response.statusCode}");
+      }
+    } catch (e) {
+      _showMessage("Lỗi kết nối tới máy chủ");
+    }
   }
 
   void _selectGender(String gender) {
@@ -67,7 +102,7 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
       return;
     }
 
-    final uri = Uri.parse('http://10.0.2.2:8286/api/users/update'); // IP máy ảo Android
+    final uri = Uri.parse('http://10.0.2.2:8286/api/users/update');
 
     final response = await http.put(
       uri,
@@ -102,7 +137,6 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
   }
 
   void _saveInfo() {
-    // Kiểm tra giá trị chiều cao và cân nặng có hợp lệ không
     final height = double.tryParse(heightController.text.trim());
     final weight = double.tryParse(weightController.text.trim());
 

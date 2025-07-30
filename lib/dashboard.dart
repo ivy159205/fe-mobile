@@ -1,4 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
+
+import '../model/HealthRecord.dart';
 import 'health_chart.dart';
 import 'dailylogentry.dart';
 import 'addTarget.dart';
@@ -6,79 +14,123 @@ import 'heath_record_list.dart';
 import 'chatbot.dart';
 import 'login.dart';
 import 'health_info_screen.dart';
-import 'auth_service.dart';
 
-class DashboardScreen extends StatelessWidget {
-  final List<Map<String, String>> healthData = [
-    {"title": "Heart Rate", "value": "72 bpm"},
-    {"title": "Blood Pressure", "value": "120/80 mmHg"},
-    {"title": "Weight", "value": "65 kg"},
-    {"title": "Sleep", "value": "7.5 hours"},
-    {"title": "Steps", "value": "8,500 bước"},
-    {"title": "Calories", "value": "320 kcal"},
-  ];
+class DashboardScreen extends StatefulWidget {
+  @override
+  _DashboardScreenState createState() => _DashboardScreenState();
+}
 
-  DashboardScreen({super.key});
+class _DashboardScreenState extends State<DashboardScreen> {
+  List<Map<String, String>>? healthData;
+  int? userId;
 
-  void _handleButtonPress(BuildContext context, String name) {
-    switch (name) {
-      case "Progress Record":
-        Navigator.push(context, MaterialPageRoute(builder: (_) => HealthChartScreen()));
-        break;
-      case "Add Daily Log":
-        Navigator.push(context, MaterialPageRoute(builder: (_) => DailyLogScreen()));
-        break;
-      case "Add Target":
-        Navigator.push(context, MaterialPageRoute(builder: (_) => AddTargetScreen()));
-        break;
-      case "Health Record List":
-        Navigator.push(context, MaterialPageRoute(builder: (_) => HealthRecordListScreen()));
-        break;
-      case "Ask AI":
-        Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
-        break;
-      case "My Profile":
-        Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
-        break;
-      case "Dashboard":
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen()));
-        break;
+  @override
+  void initState() {
+    super.initState();
+    loadUserIdAndFetchData();
+  }
+
+  Future<void> loadUserIdAndFetchData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    print('🔑 Token: $token');
+
+    if (token != null) {
+      try {
+        Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+        print('🧾 Decoded Token: $decodedToken');
+
+        userId = decodedToken['userId'];
+        print('👤 userId from token: $userId');
+
+        if (userId != null) {
+          await fetchTodayHealthRecords(token);
+        } else {
+          print("❌ userId not found in token");
+        }
+      } catch (e) {
+        print("❌ Error decoding token: $e");
+      }
+    } else {
+      print("❌ Token not found in SharedPreferences");
     }
   }
 
-  void _confirmLogout(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("Confirm Logout"),
-        content: Text("Are you sure you want to log out?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(ctx).pop(); // Close dialog
-              await AuthService.logout(context); // Proceed with logout
-            },
-            child: Text("Logout"),
-          ),
-        ],
-      ),
-    );
+  Future<void> fetchTodayHealthRecords(String token) async {
+    try {
+      if (userId == null) return;
+
+      print("📡 Fetching records for userId: $userId");
+
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:8286/api/healthrecords/user/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print("📥 Status code: ${response.statusCode}");
+      print("📥 Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        List<dynamic> jsonList = jsonDecode(response.body);
+        List<HealthRecord> allRecords = jsonList.map((e) => HealthRecord.fromJson(e)).toList();
+
+        String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        final todayRecords = allRecords.where((e) => e.logDate.startsWith(today)).toList();
+
+        print("📊 Records for today: ${todayRecords.length}");
+
+        setState(() {
+          healthData = todayRecords.map((record) {
+            return {
+              "title": record.metricName,
+              "value": "${record.value} ${record.unit}"
+            };
+          }).toList();
+        });
+      } else {
+        print("❌ Error loading data: ${response.statusCode}");
+        setState(() {
+          healthData = [];
+        });
+      }
+    } catch (e) {
+      print("❌ Exception during fetch: $e");
+      setState(() {
+        healthData = [];
+      });
+    }
+  }
+
+  void _handleButtonPress(BuildContext context, String name) {
+    if (name == "Progress Record") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthChartScreen()));
+    } else if (name == "Add Daily Log") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => DailyLogScreen()));
+    } else if (name == "Add Target") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AddTargetScreen()));
+    } else if (name == "Health Record List") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthRecordListScreen()));
+    } else if (name == "Ask AI") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
+    } else if (name == "My Profile") {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
+    } else if (name == "Logout") {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage()));
+    } else if (name == "Dashboard") {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen()));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blue,
-        title: Text("Health Dashboard"),
-      ),
+      appBar: AppBar(title: Text("Health Dashboard"), backgroundColor: Colors.blue),
       drawer: Drawer(
         child: ListView(
-          padding: EdgeInsets.zero,
           children: [
             UserAccountsDrawerHeader(
               accountName: Text("User Name"),
@@ -96,7 +148,7 @@ class DashboardScreen extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.logout),
               title: Text("Logout"),
-              onTap: () => _confirmLogout(context),
+              onTap: () => _handleButtonPress(context, "Logout"),
             ),
           ],
         ),
@@ -109,11 +161,15 @@ class DashboardScreen extends StatelessWidget {
             Text("Hello, User", style: TextStyle(fontSize: 20)),
             SizedBox(height: 20),
             Expanded(
-              child: GridView.count(
+              child: healthData == null
+                  ? Center(child: CircularProgressIndicator())
+                  : healthData!.isEmpty
+                  ? Center(child: Text("No records today"))
+                  : GridView.count(
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                children: healthData.map((item) {
+                children: healthData!.map((item) {
                   return Container(
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey),
@@ -124,15 +180,10 @@ class DashboardScreen extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          item["title"]!,
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
+                        Text(item["title"]!,
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         SizedBox(height: 8),
-                        Text(
-                          item["value"]!,
-                          style: TextStyle(fontSize: 16),
-                        ),
+                        Text(item["value"]!, style: TextStyle(fontSize: 16)),
                       ],
                     ),
                   );

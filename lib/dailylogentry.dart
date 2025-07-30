@@ -1,42 +1,17 @@
 import 'package:flutter/material.dart';
-import 'health_chart.dart';
-import 'dashboard.dart' as dashboard;
-import 'addTarget.dart';
-import 'health_info_screen.dart';
-import 'heath_record_list.dart';
-import 'chatbot.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 
-import 'login.dart'; // <-- Import thư viện intl
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Daily Log UI',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 12.0,
-            horizontal: 16.0,
-          ),
-        ),
-      ),
-      home: const DailyLogScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+import 'health_chart.dart';
+import 'addTarget.dart';
+import 'heath_record_list.dart' as healthrecordlist;
+import 'dashboard.dart';
+import 'chatbot.dart';
+import 'health_info_screen.dart';
+import 'login.dart';
 
 class DailyLogScreen extends StatefulWidget {
   const DailyLogScreen({super.key});
@@ -46,23 +21,208 @@ class DailyLogScreen extends StatefulWidget {
 }
 
 class _DailyLogScreenState extends State<DailyLogScreen> {
-  int _selectedIndex = 0;
-  final List<String> _healthMetricTypes = ['Blood Pressure', 'Blood Sugar', 'Cholesterol'];
-  String? _selectedMetricType;
+  final TextEditingController _weightController = TextEditingController();
+  final TextEditingController _exerciseController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _heartRateController = TextEditingController();
+  final TextEditingController _bloodPressureController = TextEditingController();
+  final TextEditingController _temperatureController = TextEditingController();
+  final TextEditingController _sleepController = TextEditingController();
+  final TextEditingController _waterController = TextEditingController();
+
+  DateTime _selectedDate = DateTime.now();
+  int? userId;
+  bool _isUpdateMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadUserIdFromToken();
+  }
+
+  Future<void> loadUserIdFromToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token != null) {
+      try {
+        Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+        setState(() {
+          userId = decodedToken['userId'];
+        });
+        print("✅ userId from token: $userId");
+        await _checkExistingRecord();
+      } catch (e) {
+        print("❌ Error decoding token: $e");
+      }
+    } else {
+      print("❌ Token not found");
+    }
+  }
+
+  Future<void> _checkExistingRecord() async {
+    if (userId == null) {
+      print("⚠️ userId is null, skipping record check");
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final String formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+    final response = await http.get(
+      Uri.parse('http://10.0.2.2:8286/api/healthrecords/user/$userId/log/$formattedDate'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200 && response.body != 'null') {
+      print("🟢 API response: ${response.body}");
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final List<dynamic> metrics = responseData['metrics'] ?? [];
+
+      // Dùng setState để gán tất cả controller 1 lần
+      setState(() {
+        _notesController.text = responseData['notes'] ?? '';
+
+        for (var metric in metrics) {
+          final String value = metric['value'] ?? '';
+          final int metricId = metric['metricId'];
+          print("📊 Binding metricId=$metricId with value=$value");
+
+          switch (metricId) {
+            case 1:
+              _weightController.text = value;
+              break;
+            case 2:
+              _bloodPressureController.text = value;
+              break;
+            case 3:
+              _heartRateController.text = value;
+              break;
+            case 4:
+              _temperatureController.text = value;
+              break;
+            case 5:
+              _sleepController.text = value;
+              break;
+            case 6:
+              _exerciseController.text = value;
+              break;
+            case 7:
+              _waterController.text = value;
+              break;
+          }
+        }
+
+        _isUpdateMode = true;
+      });
+    } else {
+      print("🟡 No existing record for date $formattedDate");
+      // Nếu không có dữ liệu, đảm bảo reset form (optional)
+      setState(() {
+        _isUpdateMode = false;
+        _weightController.clear();
+        _bloodPressureController.clear();
+        _heartRateController.clear();
+        _temperatureController.clear();
+        _sleepController.clear();
+        _exerciseController.clear();
+        _waterController.clear();
+        _notesController.clear();
+      });
+    }
+  }
+
+
+  Future<void> _submitOrUpdateHealthRecord() async {
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User ID not found. Please login again.')),
+      );
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final url = _isUpdateMode
+        ? 'http://10.0.2.2:8286/api/healthrecords/by-user-date'
+        : 'http://10.0.2.2:8286/api/healthrecords';
+
+    final Map<String, dynamic> data = {
+      'userId': userId,
+      'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
+      'notes': _notesController.text,
+      'metrics': [
+        {'metricId': 1, 'value': _weightController.text},
+        {'metricId': 2, 'value': _bloodPressureController.text},
+        {'metricId': 3, 'value': _heartRateController.text},
+        {'metricId': 4, 'value': _temperatureController.text},
+        {'metricId': 5, 'value': _sleepController.text},
+        {'metricId': 6, 'value': _exerciseController.text},
+        {'metricId': 7, 'value': _waterController.text},
+      ]
+    };
+
+    try {
+      final uri = Uri.parse(url);
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+      final body = jsonEncode(data);
+      print('📝 Notes text: ${_notesController.text}');
+      final response = _isUpdateMode
+          ? await http.put(uri, headers: headers, body: body)
+          : await http.post(uri, headers: headers, body: body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_isUpdateMode ? 'Updated successfully' : 'Submitted successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${response.body}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Exception: $e')),
+      );
+    }
+  }
+
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+      await _checkExistingRecord(); // re-check on date change
+    }
+  }
 
   void _handleButtonPress(BuildContext context, String name) {
     if (name == "Progress Record") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => HealthChartScreen()));
     } else if (name == "Add Daily Log") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => DailyLogScreen()));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyLogScreen()));
     } else if (name == "Add Target") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => AddTargetScreen()));
     } else if (name == "Health Record List") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthRecordListScreen()));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => healthrecordlist.HealthRecordListScreen()));
     } else if (name == "Ask AI") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => ChatbotScreen()));
     } else if (name == "Dashboard") {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => dashboard.DashboardScreen()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen()));
     } else if (name == "My Profile") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
     } else if (name == "Logout") {
@@ -70,177 +230,17 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
     }
   }
 
-  // --- BIẾN STATE MỚI ĐỂ LƯU TRỮ NGÀY VÀ GIỜ ---
-  DateTime _selectedDate = DateTime.now();
-  TimeOfDay? _fromTime;
-  TimeOfDay? _toTime;
-
-  // --- HÀM MỚI ĐỂ CHỌN NGÀY ---
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-    }
-  }
-
-  // --- HÀM MỚI ĐỂ CHỌN GIỜ ---
-  Future<void> _selectTime(BuildContext context, {required bool isFromTime}) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isFromTime) {
-          _fromTime = picked;
-        } else {
-          _toTime = picked;
-        }
-      });
-    }
-  }
-
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blue,
-        title: Text("Enter daily log"),
+  Widget _buildTextField({
+    required TextEditingController controller,
+    String? suffixText,
+  }) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        border: const OutlineInputBorder(),
+        suffixText: suffixText,
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            UserAccountsDrawerHeader(
-              accountName: Text("User Name"),
-              accountEmail: Text("user@example.com"),
-              currentAccountPicture: CircleAvatar(
-                backgroundImage: AssetImage("assets/avatar.jpg"), // hoặc dùng NetworkImage
-              ),
-              decoration: BoxDecoration(color: Colors.blue),
-            ),
-            ListTile(
-              leading: Icon(Icons.person),
-              title: Text("My Profile"),
-              onTap: () => _handleButtonPress(context, "My Profile"),
-            ),
-            ListTile(
-              leading: Icon(Icons.logout),
-              title: Text("Logout"),
-              onTap: () => _handleButtonPress(context, "Logout"),
-            ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // --- CẬP NHẬT MỤC DATE ---
-              _buildLogEntry(
-                'Date',
-                InkWell(
-                  onTap: () => _selectDate(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 12.0),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    child: Text(
-                      DateFormat('dd/MM/yyyy').format(_selectedDate), // Định dạng ngày
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // --- CẬP NHẬT MỤC SLEEP ---
-              _buildLogEntry('Sleep', Row(
-                children: [
-                  Expanded(child: _buildTimePicker(context, isFrom: true)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Text('to'),
-                  ),
-                  Expanded(child: _buildTimePicker(context, isFrom: false)),
-                ],
-              )),
-              const SizedBox(height: 16),
-
-              _buildLogEntry('Weight', _buildTextField(suffixText: 'Kg', keyboardType: TextInputType.number)),
-              const SizedBox(height: 16),
-
-              _buildLogEntry('Exercise time', _buildTextField(suffixText: 'mins', keyboardType: TextInputType.number)),
-              const SizedBox(height: 16),
-
-              _buildLogEntry('Health metric type', _buildDropdown()),
-              const SizedBox(height: 16),
-
-              _buildLogEntry('Metric value', _buildTextField(hint: 'Value')),
-              const SizedBox(height: 16),
-
-              const TextField(
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Heart rate: ...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              _buildLogEntry('Notes', _buildTextField(hint: '')),
-              const SizedBox(height: 24),
-
-              ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Submit', style: TextStyle(fontSize: 16)),
-              ),
-            ],
-          ),
-        ),
-      ),
-
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 8),
-          color: Colors.blue.shade50,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(icon: Icon(Icons.dashboard), onPressed: () => _handleButtonPress(context, "Dashboard")),
-              IconButton(icon: Icon(Icons.bar_chart), onPressed: () => _handleButtonPress(context, "Progress Record")),
-              IconButton(icon: Icon(Icons.add), onPressed: () => _handleButtonPress(context, "Add Daily Log")),
-              IconButton(icon: Icon(Icons.alarm), onPressed: () => _handleButtonPress(context, "Add Target")),
-              IconButton(icon: Icon(Icons.list), onPressed: () => _handleButtonPress(context, "Health Record List")),
-              IconButton(icon: Icon(Icons.help), onPressed: () => _handleButtonPress(context, "Ask AI")),
-            ],
-          ),
-        ),
-      ),
+      keyboardType: TextInputType.text,
     );
   }
 
@@ -259,63 +259,101 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
     );
   }
 
-  Widget _buildTextField({String? hint, String? suffixText, TextInputType? keyboardType}) {
-    return SizedBox(
-      height: 48,
-      child: TextField(
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          hintText: hint,
-          suffixText: suffixText,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Enter daily log"),
+        backgroundColor: Colors.blue,
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const UserAccountsDrawerHeader(
+              accountName: Text("User Name"),
+              accountEmail: Text("user@example.com"),
+              currentAccountPicture: CircleAvatar(
+                backgroundImage: AssetImage("assets/avatar.jpg"),
+              ),
+              decoration: BoxDecoration(color: Colors.blue),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text("My Profile"),
+              onTap: () => _handleButtonPress(context, "My Profile"),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text("Logout"),
+              onTap: () => _handleButtonPress(context, "Logout"),
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  // --- WIDGET PHỤ MỚI ĐỂ CHỌN GIỜ ---
-  Widget _buildTimePicker(BuildContext context, {required bool isFrom}) {
-    final time = isFrom ? _fromTime : _toTime;
-    final hintText = isFrom ? 'From' : 'To';
-
-    return InkWell(
-      onTap: () => _selectTime(context, isFromTime: isFrom),
-      child: Container(
-        height: 48,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey),
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        child: Center(
-          child: Text(
-            time?.format(context) ?? hintText, // Hiển thị giờ đã chọn hoặc text gợi ý
-            style: TextStyle(
-              fontSize: 16,
-              color: time == null ? Colors.grey.shade600 : Colors.black,
-            ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildLogEntry(
+                'Date',
+                InkWell(
+                  onTap: () => _selectDate(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 12.0),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: Text(
+                      DateFormat('dd/MM/yyyy').format(_selectedDate),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildLogEntry('Weight', _buildTextField(controller: _weightController, suffixText: 'Kg')),
+              _buildLogEntry('Exercise Time', _buildTextField(controller: _exerciseController, suffixText: 'Hours')),
+              _buildLogEntry('Heart Rate', _buildTextField(controller: _heartRateController, suffixText: 'BPM')),
+              _buildLogEntry('Blood Pressure', _buildTextField(controller: _bloodPressureController, suffixText: 'mmHg')),
+              _buildLogEntry('Temperature', _buildTextField(controller: _temperatureController, suffixText: '°C')),
+              _buildLogEntry('Sleep Time', _buildTextField(controller: _sleepController, suffixText: 'Hours')),
+              _buildLogEntry('Water', _buildTextField(controller: _waterController, suffixText: 'L')),
+              _buildLogEntry('Notes', _buildTextField(controller: _notesController)),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _submitOrUpdateHealthRecord,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(_isUpdateMode ? 'Update' : 'Submit', style: const TextStyle(fontSize: 16)),
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildDropdown() {
-    return SizedBox(
-      height: 48,
-      child: DropdownButtonFormField<String>(
-        decoration: const InputDecoration(),
-        hint: const Text('Type'),
-        value: _selectedMetricType,
-        items: _healthMetricTypes.map((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          );
-        }).toList(),
-        onChanged: (newValue) {
-          setState(() {
-            _selectedMetricType = newValue;
-          });
-        },
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          color: Colors.blue.shade50,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              IconButton(icon: const Icon(Icons.dashboard), onPressed: () => _handleButtonPress(context, "Dashboard")),
+              IconButton(icon: const Icon(Icons.bar_chart), onPressed: () => _handleButtonPress(context, "Progress Record")),
+              IconButton(icon: const Icon(Icons.add), onPressed: () => _handleButtonPress(context, "Add Daily Log")),
+              IconButton(icon: const Icon(Icons.alarm), onPressed: () => _handleButtonPress(context, "Add Target")),
+              IconButton(icon: const Icon(Icons.list), onPressed: () => _handleButtonPress(context, "Health Record List")),
+              IconButton(icon: const Icon(Icons.help), onPressed: () => _handleButtonPress(context, "Ask AI")),
+            ],
+          ),
+        ),
       ),
     );
   }
