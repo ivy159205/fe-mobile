@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:femobile/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -30,7 +31,7 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    final url = Uri.parse('http://10.0.2.2:8286/api/auth/register');
+    final url = Uri.parse('${baseUrl}/api/auth/register');
 
     final body = {
       "username": _usernameController.text.trim(),

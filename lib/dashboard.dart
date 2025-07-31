@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:femobile/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
@@ -64,7 +65,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       print("📡 Fetching records for userId: $userId");
 
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:8286/api/healthrecords/user/$userId'),
+        Uri.parse('${baseUrl}/api/healthrecords/user/$userId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

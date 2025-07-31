@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:femobile/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -21,14 +22,14 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
   Future<void> _sendOtp() async {
     if (_emailController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Vui lòng nhập email của bạn trước")),
+        const SnackBar(content: Text("Please enter your email first")),
       );
       return;
     }
 
     setState(() => _isLoading = true);
 
-    final url = Uri.parse('http://10.0.2.2:8286/api/auth/send-otp');
+    final url = Uri.parse('${baseUrl}/api/auth/send-otp');
     try {
       final response = await http.post(
         url,
@@ -39,7 +40,7 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
       if (mounted) { // Kiểm tra widget còn tồn tại trước khi cập nhật UI
         if (response.statusCode == 200) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Mã OTP đã được gửi đến email của bạn!")),
+            const SnackBar(content: Text("OTP code has sent to your email!")),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -50,7 +51,7 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Lỗi khi gửi OTP: $e")),
+          SnackBar(content: Text("Error when send OTP: $e")),
         );
       }
     } finally {
@@ -69,21 +70,21 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
 
     if (email.isEmpty || otp.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Vui lòng điền đầy đủ tất cả các trường")),
+        const SnackBar(content: Text("Please fill all the fields")),
       );
       return;
     }
 
     if (newPassword != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Mật khẩu mới không khớp")),
+        const SnackBar(content: Text("Password not match")),
       );
       return;
     }
 
     setState(() => _isLoading = true);
 
-    final url = Uri.parse('http://10.0.2.2:8286/api/auth/reset-password');
+    final url = Uri.parse('${baseUrl}/api/auth/reset-password');
     final body = {
       "email": email,
       "otp": otp,
@@ -100,19 +101,19 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
       if (mounted) {
         if (response.statusCode == 200) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Đặt lại mật khẩu thành công!")),
+            const SnackBar(content: Text("Reset password successfully!")),
           );
           Navigator.pop(context); // Quay về trang trước đó
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Lỗi: ${response.body}")),
+            SnackBar(content: Text("Error: ${response.body}")),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Đã xảy ra lỗi: $e")),
+          SnackBar(content: Text("Problem occured: $e")),
         );
       }
     } finally {
@@ -127,7 +128,7 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blue,
-        title: const Text('Đặt lại mật khẩu', style: TextStyle(color: Colors.white)),
+        title: const Text('Reset password', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: AbsorbPointer(
@@ -142,11 +143,11 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
-                  labelText: 'Nhập email của bạn',
+                  labelText: 'Enter email',
                   border: const OutlineInputBorder(),
                   suffixIcon: TextButton(
                     onPressed: _isLoading ? null : _sendOtp,
-                    child: const Text('Gửi mã'),
+                    child: const Text('Send code'),
                   ),
                 ),
                 keyboardType: TextInputType.emailAddress,
@@ -157,7 +158,7 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
               TextField(
                 controller: _otpController,
                 decoration: const InputDecoration(
-                  labelText: 'Nhập mã OTP từ email',
+                  labelText: 'Enter OTP from email',
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
@@ -169,7 +170,7 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
                 controller: _newPasswordController,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
-                  labelText: 'Nhập mật khẩu mới',
+                  labelText: 'Enter new password',
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
@@ -187,9 +188,17 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
               TextField(
                 controller: _confirmPasswordController,
                 obscureText: _obscurePassword,
-                decoration: const InputDecoration(
-                  labelText: 'Xác nhận mật khẩu mới',
+                decoration: InputDecoration(
+                  labelText: 'Confirm new password',
                   border: OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -212,7 +221,7 @@ class _NewPasswordPageState extends State<NewPasswordPage> {
                     strokeWidth: 3,
                   ),
                 )
-                    : const Text('Lưu mật khẩu mới'),
+                    : const Text('Save new password'),
               ),
             ],
           ),

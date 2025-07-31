@@ -1,3 +1,4 @@
+import 'package:femobile/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
@@ -35,7 +36,7 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
       return;
     }
 
-    final uri = Uri.parse('http://10.0.2.2:8286/api/users/me');
+    final uri = Uri.parse('${baseUrl}/api/users/me');
 
     try {
       final response = await http.get(
@@ -102,7 +103,7 @@ class _HealthInfoPageState extends State<HealthInfoPage> {
       return;
     }
 
-    final uri = Uri.parse('http://10.0.2.2:8286/api/users/update');
+    final uri = Uri.parse('${baseUrl}/api/users/update');
 
     final response = await http.put(
       uri,

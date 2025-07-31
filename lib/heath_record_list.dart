@@ -1,3 +1,4 @@
+import 'package:femobile/api_config.dart';
 import 'package:flutter/material.dart';
 import 'health_chart.dart';
 import 'dailylogentry.dart';
@@ -75,7 +76,7 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
     if (token == null) return;
 
     final response = await http.get(
-      Uri.parse('http://10.0.2.2:8286/api/healthrecords/user/$_userId'), // Sử dụng _userId
+      Uri.parse('${baseUrl}/api/healthrecords/user/$_userId'), // Sử dụng _userId
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -102,7 +103,7 @@ class _HealthRecordListScreenState extends State<HealthRecordListScreen> {
     final token = prefs.getString('token');
     if (token == null) return;
 
-    final url = Uri.parse('http://10.0.2.2:8286/api/healthrecords/$recordId');
+    final url = Uri.parse('${baseUrl}/api/healthrecords/$recordId');
     final response = await http.delete(
       url,
       headers: {

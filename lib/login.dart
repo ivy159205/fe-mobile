@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:femobile/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,7 +21,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
 
   Future<void> login(String email, String password) async {
-    final url = Uri.parse('http://10.0.2.2:8286/api/auth/login');
+    final url = Uri.parse('${baseUrl}/api/auth/login');
 
     setState(() => _isLoading = true);
 

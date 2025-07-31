@@ -108,7 +108,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       // --- AppBar ---
       appBar: AppBar(
         backgroundColor: Colors.blue,
-        title: const Text("Hỏi AI"),
+        title: const Text("Ask AI"),
         iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
       ),
@@ -129,12 +129,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.person),
-              title: const Text("Hồ sơ của tôi"),
+              title: const Text("My profile"),
               onTap: () => _handleButtonPress(context, "My Profile"),
             ),
             ListTile(
               leading: const Icon(Icons.logout),
-              title: const Text("Đăng xuất"),
+              title: const Text("Log out"),
               onTap: () => _handleButtonPress(context, "Logout"),
             ),
           ],
@@ -215,7 +215,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             child: TextField(
               controller: _textController,
               decoration: const InputDecoration.collapsed(
-                hintText: 'Nhập tin nhắn...',
+                hintText: 'Type everything...',
               ),
               // Gửi tin nhắn khi nhấn enter trên bàn phím
               onSubmitted: _isLoading ? null : (value) => _handleSendPressed(),

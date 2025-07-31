@@ -1,3 +1,4 @@
+import 'package:femobile/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
@@ -66,73 +67,61 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
       return;
     }
 
+    // Đầu tiên, reset form về trạng thái ban đầu
+    setState(() {
+      _isUpdateMode = false;
+      _weightController.clear();
+      _bloodPressureController.clear();
+      _heartRateController.clear();
+      _temperatureController.clear();
+      _sleepController.clear();
+      _exerciseController.clear();
+      _waterController.clear();
+      _notesController.clear();
+    });
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     final String formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
     final response = await http.get(
-      Uri.parse('http://10.0.2.2:8286/api/healthrecords/user/$userId/log/$formattedDate'),
+      Uri.parse('${baseUrl}/api/healthrecords/user/$userId/log/$formattedDate'),
       headers: {
         'Authorization': 'Bearer $token',
       },
     );
 
-    if (response.statusCode == 200 && response.body != 'null') {
+    // Thêm điều kiện response.body.isNotEmpty
+    if (response.statusCode == 200 && response.body.isNotEmpty && response.body != 'null') {
       print("🟢 API response: ${response.body}");
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       final List<dynamic> metrics = responseData['metrics'] ?? [];
 
-      // Dùng setState để gán tất cả controller 1 lần
       setState(() {
         _notesController.text = responseData['notes'] ?? '';
 
         for (var metric in metrics) {
-          final String value = metric['value'] ?? '';
+          final String value = metric['value']?.toString() ?? ''; // An toàn hơn
           final int metricId = metric['metricId'];
           print("📊 Binding metricId=$metricId with value=$value");
 
           switch (metricId) {
-            case 1:
-              _weightController.text = value;
-              break;
-            case 2:
-              _bloodPressureController.text = value;
-              break;
-            case 3:
-              _heartRateController.text = value;
-              break;
-            case 4:
-              _temperatureController.text = value;
-              break;
-            case 5:
-              _sleepController.text = value;
-              break;
-            case 6:
-              _exerciseController.text = value;
-              break;
-            case 7:
-              _waterController.text = value;
-              break;
+            case 1: _weightController.text = value; break;
+            case 2: _bloodPressureController.text = value; break;
+            case 3: _heartRateController.text = value; break;
+            case 4: _temperatureController.text = value; break;
+            case 5: _sleepController.text = value; break;
+            case 6: _exerciseController.text = value; break;
+            case 7: _waterController.text = value; break;
           }
         }
 
-        _isUpdateMode = true;
+        _isUpdateMode = true; // Chỉ bật update mode khi có dữ liệu
       });
     } else {
-      print("🟡 No existing record for date $formattedDate");
-      // Nếu không có dữ liệu, đảm bảo reset form (optional)
-      setState(() {
-        _isUpdateMode = false;
-        _weightController.clear();
-        _bloodPressureController.clear();
-        _heartRateController.clear();
-        _temperatureController.clear();
-        _sleepController.clear();
-        _exerciseController.clear();
-        _waterController.clear();
-        _notesController.clear();
-      });
+      print("🟡 No existing record for date $formattedDate (or empty response)");
+      // Form đã được reset ở trên nên không cần làm gì ở đây nữa
     }
   }
 
@@ -148,8 +137,8 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     final url = _isUpdateMode
-        ? 'http://10.0.2.2:8286/api/healthrecords/by-user-date'
-        : 'http://10.0.2.2:8286/api/healthrecords';
+        ? '${baseUrl}/api/healthrecords/by-user-date'
+        : '${baseUrl}/api/healthrecords';
 
     final Map<String, dynamic> data = {
       'userId': userId,

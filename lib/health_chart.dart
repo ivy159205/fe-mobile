@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:femobile/api_config.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -22,6 +23,7 @@ class HealthChartScreen extends StatefulWidget {
 }
 
 class _HealthChartScreenState extends State<HealthChartScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int? userId;
   String? token;
   bool isLoading = true;
@@ -60,9 +62,11 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
     token = prefs.getString('token');
 
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Bạn chưa đăng nhập")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Bạn chưa đăng nhập")),
+        );
+      }
       return;
     }
 
@@ -83,7 +87,7 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
     if (userId == null || token == null) return;
 
     final response = await http.get(
-      Uri.parse('http://10.0.2.2:8286/api/healthrecords/user/$userId'),
+      Uri.parse('${baseUrl}/api/healthrecords/user/$userId'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -92,7 +96,6 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
 
     if (response.statusCode == 200) {
       final List<dynamic> jsonData = json.decode(response.body);
-
       final weekDates = getCurrentWeekDates();
 
       metricsByDate.clear();
@@ -101,6 +104,9 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
           for (var date in weekDates) date: 0.0,
         };
       }
+      metricsByDate['Blood Pressure'] = {
+        for (var date in weekDates) date: [0.0, 0.0]
+      };
 
       for (var e in jsonData) {
         final logDateStr = e['logDate'];
@@ -111,22 +117,6 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
 
         final formattedDate = DateFormat('yyyy-MM-dd').format(date);
         if (!weekDates.contains(formattedDate)) continue;
-
-        void updateMetric(String key, dynamic value) {
-          if (metricsByDate.containsKey(key) && value != null) {
-            double? parsedValue;
-            if (value is String) {
-              parsedValue = double.tryParse(value);
-            } else if (value is int) {
-              parsedValue = value.toDouble();
-            } else if (value is double) {
-              parsedValue = value;
-            }
-            if (parsedValue != null) {
-              metricsByDate[key]![formattedDate] = parsedValue;
-            }
-          }
-        }
 
         final metric = e['metricName'];
         final value = e['value'];
@@ -141,21 +131,33 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
             }
           }
         } else {
-          updateMetric(metric, value);
+          if (metricsByDate.containsKey(metric) && value != null) {
+            double? parsedValue;
+            if (value is String) {
+              parsedValue = double.tryParse(value);
+            } else if (value is int) {
+              parsedValue = value.toDouble();
+            } else if (value is double) {
+              parsedValue = value;
+            }
+            if (parsedValue != null) {
+              metricsByDate[metric]![formattedDate] = parsedValue;
+            }
+          }
         }
       }
 
-      setState(() {
-        isLoading = false;
-      });
-    } else if (response.statusCode == 401) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.")),
-      );
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Tải dữ liệu thất bại: ${response.statusCode}")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Lỗi tải dữ liệu: ${response.statusCode}")),
+        );
+      }
     }
   }
 
@@ -166,9 +168,12 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
     return List.generate(7, (i) => formatter.format(monday.add(Duration(days: i))));
   }
 
-  void _handleButtonPress(BuildContext context, String name) {
+  void _handleButtonPress(String name) {
+    if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+      _scaffoldKey.currentState?.closeDrawer();
+    }
+
     if (name == "Progress Record") {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => HealthChartScreen()));
     } else if (name == "Add Daily Log") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => DailyLogScreen()));
     } else if (name == "Add Target") {
@@ -182,7 +187,14 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
     } else if (name == "My Profile") {
       Navigator.push(context, MaterialPageRoute(builder: (_) => HealthInfoPage()));
     } else if (name == "Logout") {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage()));
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.remove('token');
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => LoginPage()),
+              (Route<dynamic> route) => false,
+        );
+      });
     }
   }
 
@@ -200,7 +212,7 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
                 final date = weekDates[index];
                 final raw = data[date];
 
-                if (metricName == 'Blood Pressure' && raw is List) {
+                if (metricName == 'Blood Pressure' && raw is List<double>) {
                   return BarChartGroupData(
                     x: index,
                     barRods: [
@@ -258,9 +270,35 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
     final weekDates = getCurrentWeekDates();
 
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: const Text("Progress Record"),
         backgroundColor: Colors.blue,
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              accountName: Text("User Name"),
+              accountEmail: Text("user@example.com"),
+              currentAccountPicture: CircleAvatar(
+                backgroundImage: AssetImage("assets/avatar.jpg"),
+              ),
+              decoration: BoxDecoration(color: Colors.blue),
+            ),
+            ListTile(
+              leading: Icon(Icons.person),
+              title: Text("My Profile"),
+              onTap: () => _handleButtonPress("My Profile"),
+            ),
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text("Logout"),
+              onTap: () => _handleButtonPress("Logout"),
+            ),
+          ],
+        ),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -272,7 +310,7 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
             children: [
               Row(
                 children: [
-                  const Text("Chọn tuần từ ngày: ", style: TextStyle(fontSize: 16)),
+                  const Text("Select week from day: ", style: TextStyle(fontSize: 16)),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () async {
@@ -287,15 +325,14 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
                           selectedDate = pickedDate;
                           selectedWeek = getWeekNumber(pickedDate);
                           isLoading = true;
-                          metricsByDate.clear();
                         });
                         await fetchHealthData();
                       }
                     },
                     child: Text(
                       selectedDate != null
-                          ? 'Tuần $selectedWeek (${DateFormat('dd/MM').format(selectedDate!)})'
-                          : 'Chọn ngày',
+                          ? 'Week $selectedWeek (${DateFormat('dd/MM').format(selectedDate!)})'
+                          : 'Select day',
                     ),
                   ),
                 ],
@@ -313,12 +350,12 @@ class _HealthChartScreenState extends State<HealthChartScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              IconButton(icon: Icon(Icons.dashboard), onPressed: () => _handleButtonPress(context, "Dashboard")),
-              IconButton(icon: Icon(Icons.bar_chart), onPressed: () => _handleButtonPress(context, "Progress Record")),
-              IconButton(icon: Icon(Icons.add), onPressed: () => _handleButtonPress(context, "Add Daily Log")),
-              IconButton(icon: Icon(Icons.alarm), onPressed: () => _handleButtonPress(context, "Add Target")),
-              IconButton(icon: Icon(Icons.list), onPressed: () => _handleButtonPress(context, "Health Record List")),
-              IconButton(icon: Icon(Icons.help), onPressed: () => _handleButtonPress(context, "Ask AI")),
+              IconButton(icon: Icon(Icons.dashboard), onPressed: () => _handleButtonPress("Dashboard")),
+              IconButton(icon: Icon(Icons.bar_chart), onPressed: () => _handleButtonPress("Progress Record")),
+              IconButton(icon: Icon(Icons.add), onPressed: () => _handleButtonPress("Add Daily Log")),
+              IconButton(icon: Icon(Icons.alarm), onPressed: () => _handleButtonPress("Add Target")),
+              IconButton(icon: Icon(Icons.list), onPressed: () => _handleButtonPress("Health Record List")),
+              IconButton(icon: Icon(Icons.help), onPressed: () => _handleButtonPress("Ask AI")),
             ],
           ),
         ),

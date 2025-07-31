@@ -14,6 +14,7 @@ import 'chatbot.dart';
 import 'login.dart';
 import 'health_info_screen.dart';
 import 'dashboard.dart' as dash;
+import 'api_config.dart';
 
 class AddTargetScreen extends StatefulWidget {
   const AddTargetScreen({super.key});
@@ -80,7 +81,7 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
   Future<void> _fetchTargets(String token) async {
     if (_userId == null) return;
     final response = await http.get(
-      Uri.parse('http://10.0.2.2:8286/api/targets/user/$_userId'),
+      Uri.parse('${baseUrl}/api/targets/user/$_userId'),
       headers: {'Authorization': 'Bearer $token'},
     );
 
@@ -120,15 +121,15 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Xác nhận Xóa"),
-          content: Text("Bạn có chắc chắn muốn xóa mục tiêu này không?"),
+          title: Text("Confirm remove"),
+          content: Text("Are you sure to delete this target?"),
           actions: <Widget>[
             TextButton(
-              child: Text("Hủy"),
+              child: Text("Cancel"),
               onPressed: () => Navigator.of(context).pop(),
             ),
             TextButton(
-              child: Text("Xóa", style: TextStyle(color: Colors.red)),
+              child: Text("Remove", style: TextStyle(color: Colors.red)),
               onPressed: () {
                 Navigator.of(context).pop();
                 _deleteTarget(targetId);
@@ -146,19 +147,19 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
     if (token == null) return;
 
     final response = await http.delete(
-      Uri.parse('http://10.0.2.2:8286/api/targets/$targetId'),
+      Uri.parse('${baseUrl}/api/targets/$targetId'),
       headers: {'Authorization': 'Bearer $token'},
     );
 
     if (mounted) {
       if (response.statusCode == 200 || response.statusCode == 204) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Đã xóa mục tiêu thành công!'), backgroundColor: Colors.green),
+          SnackBar(content: Text('Remove target successfully!'), backgroundColor: Colors.green),
         );
         _loadUserIdAndFetchTargets();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi xóa mục tiêu.'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Failed to remove target.'), backgroundColor: Colors.red),
         );
         print("❌ Failed to delete target: ${response.statusCode}");
       }
@@ -170,15 +171,19 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
   void _showAddTargetDialog({Map<String, dynamic>? targetToEdit}) {
     final bool isEditMode = targetToEdit != null;
 
-    final titleController = TextEditingController(text: isEditMode ? targetToEdit['title'] : '');
-    final statusController = TextEditingController(text: isEditMode ? targetToEdit['status'] : '');
-
-    final details = isEditMode ? targetToEdit['details'][0] : null;
-    final comparisonTypeController = TextEditingController(text: isEditMode ? details['comparisonType'] : '');
-    final aggregationTypeController = TextEditingController(text: isEditMode ? details['aggregationType'] : '');
+    // Các Controller cho các trường văn bản
+    final titleController = TextEditingController(text: isEditMode ? targetToEdit!['title'] : '');
+    final details = isEditMode ? targetToEdit!['details'][0] : null;
     final targetValueController = TextEditingController(text: isEditMode ? details['targetValue'].toString() : '');
 
-    if (isEditMode && targetToEdit['startDate'] != null) {
+    // Khởi tạo giá trị cho các dropdown và date picker
+    String? selectedStatus = isEditMode ? targetToEdit!['status'] : null;
+    String? selectedComparisonType = isEditMode ? details['comparisonType'] : null;
+    String? selectedAggregationType = isEditMode ? details['aggregationType'] : null;
+    int? selectedMetricIdInDialog = isEditMode ? details['metricId'] : null;
+
+    // Xử lý ngày bắt đầu và kết thúc
+    if (isEditMode && targetToEdit!['startDate'] != null) {
       _startDate = DateTime.parse(targetToEdit['startDate']);
       _startDateController.text = DateFormat('yyyy-MM-dd').format(_startDate!);
     } else {
@@ -193,12 +198,15 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
       _finishDate = null;
     }
 
-    int? selectedMetricIdInDialog = isEditMode ? details['metricId'] : null;
+    // Danh sách các lựa chọn cho dropdown
+    final List<String> statusOptions = ['active', 'deactive'];
+    final List<String> comparisonOptions = ['higher than', 'lower than'];
+    final List<String> aggregationOptions = ['daily', 'weekly', 'monthly'];
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isEditMode ? "Chỉnh sửa Mục tiêu" : "Thêm Mục tiêu Mới"),
+        title: Text(isEditMode ? "Update Target" : "Add New Target"),
         content: StatefulBuilder(
           builder: (BuildContext context, StateSetter dialogSetState) {
             return SingleChildScrollView(
@@ -207,14 +215,27 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextFormField(controller: titleController, decoration: InputDecoration(labelText: 'Title'), validator: (v) => v!.isEmpty ? 'Title is required' : null),
-                    TextFormField(controller: statusController, decoration: InputDecoration(labelText: 'Status'), validator: (v) => v!.isEmpty ? 'Status is required' : null),
+                    TextFormField(
+                      controller: titleController,
+                      decoration: InputDecoration(labelText: 'Title'),
+                      validator: (v) => v!.isEmpty ? 'Title is required' : null,
+                    ),
+                    // --- DROPDOWN CHO STATUS ---
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      decoration: InputDecoration(labelText: 'Status'),
+                      items: statusOptions.map((String value) {
+                        return DropdownMenuItem<String>(value: value, child: Text(value));
+                      }).toList(),
+                      onChanged: (newValue) => dialogSetState(() => selectedStatus = newValue),
+                      validator: (value) => value == null ? 'Please select a status.' : null,
+                    ),
                     TextFormField(
                       controller: _startDateController, readOnly: true,
                       decoration: InputDecoration(labelText: 'Start Date'),
                       onTap: () async {
                         final picked = await showDatePicker(context: context, initialDate: _startDate ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2100));
-                        if(picked != null) {
+                        if (picked != null) {
                           dialogSetState(() {
                             _startDate = picked;
                             _startDateController.text = DateFormat('yyyy-MM-dd').format(picked);
@@ -228,7 +249,7 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
                       decoration: InputDecoration(labelText: 'Finish Date'),
                       onTap: () async {
                         final picked = await showDatePicker(context: context, initialDate: _finishDate ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2100));
-                        if(picked != null) {
+                        if (picked != null) {
                           dialogSetState(() {
                             _finishDate = picked;
                             _finishDateController.text = DateFormat('yyyy-MM-dd').format(picked);
@@ -246,14 +267,32 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
                       onChanged: (value) => dialogSetState(() => selectedMetricIdInDialog = value),
                       validator: (value) => value == null ? 'Please select a metric type.' : null,
                     ),
-                    TextFormField(controller: comparisonTypeController, decoration: InputDecoration(labelText: 'Comparison Type'), validator: (v) => v!.isEmpty ? 'Comparison type is required' : null),
+                    // --- DROPDOWN CHO COMPARISON TYPE ---
+                    DropdownButtonFormField<String>(
+                      value: selectedComparisonType,
+                      decoration: InputDecoration(labelText: 'Comparison Type'),
+                      items: comparisonOptions.map((String value) {
+                        return DropdownMenuItem<String>(value: value, child: Text(value));
+                      }).toList(),
+                      onChanged: (newValue) => dialogSetState(() => selectedComparisonType = newValue),
+                      validator: (value) => value == null ? 'Please select a comparison type.' : null,
+                    ),
                     TextFormField(
                       controller: targetValueController,
                       decoration: InputDecoration(labelText: 'Target Value'),
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
                       validator: (v) => v!.isEmpty ? 'Target value is required' : null,
                     ),
-                    TextFormField(controller: aggregationTypeController, decoration: InputDecoration(labelText: 'Aggregation Type'), validator: (v) => v!.isEmpty ? 'Aggregation type is required' : null),
+                    // --- DROPDOWN CHO AGGREGATION TYPE ---
+                    DropdownButtonFormField<String>(
+                      value: selectedAggregationType,
+                      decoration: InputDecoration(labelText: 'Aggregation Type'),
+                      items: aggregationOptions.map((String value) {
+                        return DropdownMenuItem<String>(value: value, child: Text(value));
+                      }).toList(),
+                      onChanged: (newValue) => dialogSetState(() => selectedAggregationType = newValue),
+                      validator: (value) => value == null ? 'Please select an aggregation type.' : null,
+                    ),
                   ],
                 ),
               ),
@@ -261,7 +300,7 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
           },
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Hủy")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel")),
           ElevatedButton(
             onPressed: () async {
               if (_formKey.currentState!.validate()) {
@@ -270,14 +309,16 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
                 if (token == null || _userId == null) return;
 
                 final requestBody = json.encode({
-                  "title": titleController.text, "status": statusController.text,
-                  "startDate": _startDate?.toIso8601String(), "endDate": _finishDate?.toIso8601String(),
+                  "title": titleController.text,
+                  "status": selectedStatus, // Sử dụng giá trị từ dropdown
+                  "startDate": _startDate?.toIso8601String(),
+                  "endDate": _finishDate?.toIso8601String(),
                   "user": { "userId": _userId },
                   "details": [{
                     "metricId": selectedMetricIdInDialog,
-                    "comparisonType": comparisonTypeController.text,
+                    "comparisonType": selectedComparisonType, // Sử dụng giá trị từ dropdown
                     "targetValue": double.tryParse(targetValueController.text) ?? 0,
-                    "aggregationType": aggregationTypeController.text,
+                    "aggregationType": selectedAggregationType, // Sử dụng giá trị từ dropdown
                   }]
                 });
 
@@ -285,13 +326,13 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
                 if (isEditMode) {
                   final targetId = targetToEdit['targetId'];
                   response = await http.put(
-                    Uri.parse('http://10.0.2.2:8286/api/targets/$targetId'),
+                    Uri.parse('${baseUrl}/api/targets/$targetId'),
                     headers: { 'Authorization': 'Bearer $token', 'Content-Type': 'application/json' },
                     body: requestBody,
                   );
                 } else {
                   response = await http.post(
-                    Uri.parse('http://10.0.2.2:8286/api/targets'),
+                    Uri.parse('${baseUrl}/api/targets'),
                     headers: { 'Authorization': 'Bearer $token', 'Content-Type': 'application/json' },
                     body: requestBody,
                   );
@@ -299,11 +340,11 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
 
                 if (!mounted) return;
 
-                if (response.statusCode == 200 || response.statusCode == 201) {
+                if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 403) {
                   Navigator.pop(context);
                   _loadUserIdAndFetchTargets();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(isEditMode ? 'Cập nhật thành công!' : 'Thêm mới thành công!'), backgroundColor: Colors.green),
+                    SnackBar(content: Text(isEditMode ? 'Update successfully!' : 'Add successfully!'), backgroundColor: Colors.green),
                   );
                 } else {
                   print("❌ Failed to save target: ${response.statusCode} ${response.body}");
@@ -313,7 +354,7 @@ class _AddTargetScreenState extends State<AddTargetScreen> {
                 }
               }
             },
-            child: Text(isEditMode ? "Lưu" : "Thêm"),
+            child: Text(isEditMode ? "Save" : "Add"),
           )
         ],
       ),
